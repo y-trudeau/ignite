@@ -480,7 +480,7 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
                                     key,
                                     row.value(),
                                     skipVals,
-                                    false,
+                                    keepCacheObj,
                                     deserializeBinary,
                                     true,
                                     null,
@@ -596,12 +596,12 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
                                     context().evicts().touch(entry, topVer);
                             }
                         }
-
-                        if (!success)
-                            break;
-                        else if (!skipVals && ctx.config().isStatisticsEnabled())
-                            ctx.cache().metrics0().onRead(true);
                     }
+
+                    if (!success)
+                        break;
+                    else if (!skipVals && ctx.config().isStatisticsEnabled())
+                        ctx.cache().metrics0().onRead(true);
                 }
 
                 if (success) {
