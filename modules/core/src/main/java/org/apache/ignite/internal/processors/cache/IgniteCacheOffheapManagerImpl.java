@@ -362,6 +362,16 @@ public class IgniteCacheOffheapManagerImpl extends GridCacheManagerAdapter imple
     }
 
     /** {@inheritDoc} */
+    @Nullable @Override public CacheDataRow read(KeyCacheObject key) throws IgniteCheckedException {
+        if (cctx.isLocal())
+            return locCacheDataStore.find(key);
+
+        GridDhtLocalPartition part = cctx.topology().localPartition(cctx.affinity().partition(key), null, false);
+
+        return part != null ? dataStore(part).find(key) : null;
+    }
+
+    /** {@inheritDoc} */
     @Override public boolean containsKey(GridCacheMapEntry entry) {
         try {
             return read(entry) != null;

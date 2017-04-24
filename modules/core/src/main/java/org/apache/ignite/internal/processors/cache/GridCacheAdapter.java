@@ -1967,58 +1967,104 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
                 final boolean storeEnabled = !skipVals && readThrough && ctx.readThrough();
 
+                boolean readNoEntry = ctx.readNoEntry(expiry, false);
+
                 for (KeyCacheObject key : keys) {
                     while (true) {
-                        GridCacheEntryEx entry = entryEx(key);
-
-                        if (entry == null) {
-                            if (!skipVals && ctx.config().isStatisticsEnabled())
-                                ctx.cache().metrics0().onRead(false);
-
-                            break;
-                        }
-
                         try {
-                            EntryGetResult res;
+                            EntryGetResult res = null;
 
                             boolean evt = !skipVals;
                             boolean updateMetrics = !skipVals;
 
-                            if (storeEnabled) {
-                                res = entry.innerGetAndReserveForLoad(updateMetrics,
-                                    evt,
-                                    subjId,
-                                    taskName,
-                                    expiry,
-                                    !deserializeBinary,
-                                    readerArgs);
+                            GridCacheEntryEx entry = null;
 
-                                assert res != null;
+                            boolean skipEntry = readNoEntry;
 
-                                if (res.value() == null) {
-                                    if (misses == null)
-                                        misses = new HashMap<>();
+                            if (readNoEntry) {
+                                CacheDataRow row = ctx.offheap().read(key);
 
-                                    misses.put(key, res);
+                                if (row != null) {
+                                    long expireTime = row.expireTime();
 
-                                    res = null;
+                                    if (expireTime != 0) {
+                                        if (expireTime  >  U.currentTimeMillis()) {
+                                            res = new EntryGetWithTtlResult(row.value(),
+                                                row.version(),
+                                                false,
+                                                expireTime,
+                                                0);
+                                        }
+                                        else
+                                            skipEntry = false;
+                                    }
+                                    else
+                                        res = new EntryGetResult(row.value(), row.version(), false);
                                 }
-                            }
-                            else {
-                                res = entry.innerGetVersioned(
-                                    null,
-                                    null,
-                                    updateMetrics,
-                                    evt,
-                                    subjId,
-                                    null,
-                                    taskName,
-                                    expiry,
-                                    !deserializeBinary,
-                                    readerArgs);
 
-                                if (res == null)
-                                    ctx.evicts().touch(entry, topVer);
+                                if (res != null) {
+                                    if (evt) {
+                                        ctx.events().readEvent(key,
+                                            null,
+                                            row.value(),
+                                            subjId,
+                                            taskName,
+                                            !deserializeBinary);
+                                    }
+
+                                    if (updateMetrics && ctx.cache().configuration().isStatisticsEnabled())
+                                        ctx.cache().metrics0().onRead(true);
+                                }
+                                else if (storeEnabled)
+                                    skipEntry = false;
+                            }
+
+                            if (!skipEntry) {
+                                entry = entryEx(key);
+
+                                if (entry == null) {
+                                    if (!skipVals && ctx.config().isStatisticsEnabled())
+                                        ctx.cache().metrics0().onRead(false);
+
+                                    break;
+                                }
+
+                                if (storeEnabled) {
+                                    res = entry.innerGetAndReserveForLoad(updateMetrics,
+                                        evt,
+                                        subjId,
+                                        taskName,
+                                        expiry,
+                                        !deserializeBinary,
+                                        readerArgs);
+
+                                    assert res != null;
+
+                                    if (res.value() == null) {
+                                        if (misses == null)
+                                            misses = new HashMap<>();
+
+                                        misses.put(key, res);
+
+                                        res = null;
+                                    }
+                                }
+                                else {
+                                    res = entry.innerGetVersioned(
+                                        null,
+                                        null,
+                                        updateMetrics,
+                                        evt,
+                                        subjId,
+                                        null,
+                                        taskName,
+                                        expiry,
+                                        !deserializeBinary,
+                                        readerArgs);
+
+                                    if (res == null)
+                                        ctx.evicts().touch(entry, topVer);
+                                }
                             }
 
                             if (res != null) {
@@ -2031,7 +2077,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                                     true,
                                     needVer);
 
-                                if (tx == null || (!tx.implicit() && tx.isolation() == READ_COMMITTED))
+                                if (entry != null && (tx == null || (!tx.implicit() && tx.isolation() == READ_COMMITTED)))
                                     ctx.evicts().touch(entry, topVer);
 
                                 if (keysSize == 1)
@@ -5584,6 +5630,10 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
                     return CU.toTtl(expiryPlc.getExpiryForAccess());
                 }
 
+                @Override public boolean hasAccessTtl() {
+                    return CU.toTtl(expiryPlc.getExpiryForAccess()) != CU.TTL_NOT_CHANGED;
+                }
+
                 @Override public long forCreate() {
                     return CU.toTtl(expiryPlc.getExpiryForCreation());
                 }
@@ -5610,6 +5660,10 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
 
                 @Override public long forAccess() {
                     return accessTtl;
+                }
+
+                @Override public boolean hasAccessTtl() {
+                    return accessTtl != CU.TTL_NOT_CHANGED;
                 }
 
                 /** {@inheritDoc} */
