@@ -197,11 +197,9 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
             @Override public GridCacheMapEntry create(
                 GridCacheContext ctx,
                 AffinityTopologyVersion topVer,
-                KeyCacheObject key,
-                int hash,
-                CacheObject val
+                KeyCacheObject key
             ) {
-                return new GridDhtAtomicCacheEntry(ctx, topVer, key, hash, val);
+                return new GridDhtAtomicCacheEntry(ctx, topVer, key);
             }
         };
     }

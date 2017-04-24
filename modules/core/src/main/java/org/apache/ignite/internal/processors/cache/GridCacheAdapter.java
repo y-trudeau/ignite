@@ -946,7 +946,7 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
      * @return Entry (never {@code null}).
      */
     public GridCacheEntryEx entryEx(KeyCacheObject key, AffinityTopologyVersion topVer) {
-        GridCacheEntryEx e = map.putEntryIfObsoleteOrAbsent(topVer, key, null, true, false);
+        GridCacheEntryEx e = map.putEntryIfObsoleteOrAbsent(topVer, key, true, false);
 
         assert e != null;
 
@@ -968,7 +968,6 @@ public abstract class GridCacheAdapter<K, V> implements IgniteInternalCache<K, V
             cur = map.putEntryIfObsoleteOrAbsent(
                 topVer,
                 key,
-                null,
                 create, touch);
         }
 

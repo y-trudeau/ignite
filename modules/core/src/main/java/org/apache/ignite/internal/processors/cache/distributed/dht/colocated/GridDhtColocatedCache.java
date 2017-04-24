@@ -121,11 +121,9 @@ public class GridDhtColocatedCache<K, V> extends GridDhtTransactionalCacheAdapte
             @Override public GridCacheMapEntry create(
                 GridCacheContext ctx,
                 AffinityTopologyVersion topVer,
-                KeyCacheObject key,
-                int hash,
-                CacheObject val
+                KeyCacheObject key
             ) {
-                return new GridDhtColocatedCacheEntry(ctx, topVer, key, hash, val);
+                return new GridDhtColocatedCacheEntry(ctx, topVer, key);
             }
         };
     }
