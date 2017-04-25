@@ -17,46 +17,54 @@
 
 package org.apache.ignite.plugin.security;
 
-import java.util.Map;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 
+import static org.apache.ignite.plugin.security.SecurityPermission.ADMIN_VIEW;
 import static org.apache.ignite.plugin.security.SecurityPermission.CACHE_PUT;
 import static org.apache.ignite.plugin.security.SecurityPermission.CACHE_READ;
 import static org.apache.ignite.plugin.security.SecurityPermission.CACHE_REMOVE;
+import static org.apache.ignite.plugin.security.SecurityPermission.EVENTS_ENABLE;
 import static org.apache.ignite.plugin.security.SecurityPermission.TASK_CANCEL;
 import static org.apache.ignite.plugin.security.SecurityPermission.TASK_EXECUTE;
-import static org.apache.ignite.plugin.security.SecurityPermission.EVENTS_ENABLE;
-import static org.apache.ignite.plugin.security.SecurityPermission.ADMIN_VIEW;
 import static org.apache.ignite.testframework.GridTestUtils.assertThrows;
 
 /**
  * Test for check correct work {@link SecurityPermissionSetBuilder permission builder}
  */
 public class SecurityPermissionSetBuilderTest extends GridCommonAbstractTest {
+    private static Collection<SecurityPermission> permissions(SecurityPermission... perms) {
+        Collection<SecurityPermission> col = U.newHashSet(perms.length);
+
+        Collections.addAll(col, perms);
+
+        return col;
+    }
+
     /**
-     *
      */
     public void testPermissionBuilder() {
         SecurityBasicPermissionSet exp = new SecurityBasicPermissionSet();
 
         Map<String, Collection<SecurityPermission>> permCache = new HashMap<>();
-        permCache.put("cache1", Arrays.asList(CACHE_PUT, CACHE_REMOVE));
-        permCache.put("cache2", Arrays.asList(CACHE_READ));
+        permCache.put("cache1", permissions(CACHE_PUT, CACHE_REMOVE));
+        permCache.put("cache2", permissions(CACHE_READ));
 
         exp.setCachePermissions(permCache);
 
         Map<String, Collection<SecurityPermission>> permTask = new HashMap<>();
-        permTask.put("task1", Arrays.asList(TASK_CANCEL));
-        permTask.put("task2", Arrays.asList(TASK_EXECUTE));
+        permTask.put("task1", permissions(TASK_CANCEL));
+        permTask.put("task2", permissions(TASK_EXECUTE));
 
         exp.setTaskPermissions(permTask);
 
-        exp.setSystemPermissions(Arrays.asList(ADMIN_VIEW, EVENTS_ENABLE));
+        exp.setSystemPermissions(permissions(ADMIN_VIEW, EVENTS_ENABLE));
 
         final SecurityPermissionSetBuilder permsBuilder = new SecurityPermissionSetBuilder();
 
@@ -90,15 +98,15 @@ public class SecurityPermissionSetBuilderTest extends GridCommonAbstractTest {
                 "you can assign permission only start with [EVENTS_, ADMIN_], but you try TASK_EXECUTE"
         );
 
-        permsBuilder.appendCachePermissions(
-                "cache1", CACHE_PUT, CACHE_REMOVE
-        ).appendCachePermissions(
-                "cache2", CACHE_READ
-        ).appendTaskPermissions(
-                "task1", TASK_CANCEL
-        ).appendTaskPermissions(
-                "task2", TASK_EXECUTE
-        ).appendSystemPermissions(ADMIN_VIEW, EVENTS_ENABLE);
+        permsBuilder
+            .appendCachePermissions("cache1", CACHE_PUT)
+            .appendCachePermissions("cache1", CACHE_PUT, CACHE_REMOVE)
+            .appendCachePermissions("cache2", CACHE_READ)
+            .appendTaskPermissions("task1", TASK_CANCEL)
+            .appendTaskPermissions("task2", TASK_EXECUTE)
+            .appendTaskPermissions("task2", TASK_EXECUTE)
+            .appendSystemPermissions(ADMIN_VIEW)
+            .appendSystemPermissions(ADMIN_VIEW, EVENTS_ENABLE);
 
         SecurityPermissionSet actual = permsBuilder.build();
 
